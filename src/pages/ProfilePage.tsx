@@ -45,7 +45,7 @@ export default function ProfilePage() {
     { icon: Trophy, label: 'Leaderboard', href: '/leaderboard', color: 'text-yellow-500' },
     { icon: Crown, label: 'Premium', href: '/premium', color: 'text-yellow-500' },
     ...(profile?.is_premium ? [{ icon: Gift, label: 'Berbagi Premium', href: '/share-premium', color: 'text-yellow-500' }] : []),
-    { icon: Trophy, label: 'Achievement', href: '/achievements', color: 'text-gold' },
+    { icon: Trophy, label: 'Achievement', href: '/achievements', color: 'text-yellow-500' },
     ...(isAdmin ? [{ icon: Shield, label: 'Admin Panel', href: '/admin', color: 'text-destructive' }] : []),
   ];
 

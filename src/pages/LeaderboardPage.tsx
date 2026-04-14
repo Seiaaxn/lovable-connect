@@ -28,13 +28,13 @@ export default function LeaderboardPage() {
     const fetchUsers = async () => {
       const snapshot = await get(ref(db, 'profiles'));
       if (snapshot.exists()) {
-        const users: LeaderboardUser[] = [];
+        const list: LeaderboardUser[] = [];
         snapshot.forEach((child) => {
           const val = child.val();
-          users.push({ user_id: val.user_id || child.key!, display_name: val.display_name, avatar_url: val.avatar_url, level: val.level || 1, exp: val.exp || 0, is_premium: val.is_premium || false, badge: val.badge || null });
+          list.push({ user_id: val.user_id || child.key!, display_name: val.display_name, avatar_url: val.avatar_url, level: val.level || 1, exp: val.exp || 0, is_premium: val.is_premium || false, badge: val.badge || null });
         });
-        users.sort((a, b) => b.level - a.level || b.exp - a.exp);
-        setUsers(users.slice(0, 100));
+        list.sort((a, b) => b.level - a.level || b.exp - a.exp);
+        setUsers(list.slice(0, 100));
       }
       setLoading(false);
     };

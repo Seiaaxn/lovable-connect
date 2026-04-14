@@ -34,29 +34,38 @@ export default function SharePremiumPage() {
 
   const fetchFriends = async () => {
     if (!user) return;
-    const { data: friendships } = await supabase
-      .from('friendships')
-      .select('requester_id, addressee_id')
-      .or(`requester_id.eq.${user.uid},addressee_id.eq.${user.uid}`)
-      .eq('status', 'accepted');
+    try {
+      const friendsSnap = await get(ref(db, 'friendships'));
+      const friendIds: string[] = [];
+      if (friendsSnap.exists()) {
+        friendsSnap.forEach((child) => {
+          const val = child.val();
+          if (val.status === 'accepted') {
+            if (val.requester_id === user.uid) friendIds.push(val.addressee_id);
+            else if (val.addressee_id === user.uid) friendIds.push(val.requester_id);
+          }
+        });
+      }
 
-    if (friendships && friendships.length > 0) {
-      const friendIds = friendships.map(f => f.requester_id === user.uid ? f.addressee_id : f.requester_id);
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('user_id, display_name, avatar_url, is_premium')
-        .in('user_id', friendIds);
-      setFriends((profiles as Friend[]) || []);
-    }
+      const friendProfiles: Friend[] = [];
+      for (const fid of friendIds) {
+        const pSnap = await get(ref(db, `profiles/${fid}`));
+        if (pSnap.exists()) {
+          const val = pSnap.val();
+          friendProfiles.push({ user_id: fid, display_name: val.display_name, avatar_url: val.avatar_url, is_premium: val.is_premium || false });
+        }
+      }
+      setFriends(friendProfiles);
+    } catch {}
     setLoading(false);
   };
 
   const sharePremium = async (friendId: string) => {
-    if (!profile || sharing) return;
+    if (!profile || sharing || !user) return;
     setSharing(friendId);
 
-    const SHARE_COST = 30000; // coins
-    const SHARE_DAYS = 30; // 30 days of premium
+    const SHARE_COST = 30000;
+    const SHARE_DAYS = 30;
 
     if (profile.coins < SHARE_COST) {
       toast.error(`Koin tidak cukup! Butuh ${SHARE_COST} koin`);
@@ -64,15 +73,12 @@ export default function SharePremiumPage() {
       return;
     }
 
-    // Deduct coins from sharer
-    await supabase.from('profiles').update({ coins: profile.coins - SHARE_COST }).eq('user_id', user!.id);
+    await update(ref(db, `profiles/${user.uid}`), { coins: profile.coins - SHARE_COST });
 
-    // Give premium to friend
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + SHARE_DAYS);
     await update(ref(db, `profiles/${friendId}`), { is_premium: true, premium_expires_at: expiresAt.toISOString() });
 
-    // Send notification
     const friendProfile = friends.find(f => f.user_id === friendId);
     await push(ref(db, `notifications/${friendId}`), {
       user_id: friendId,

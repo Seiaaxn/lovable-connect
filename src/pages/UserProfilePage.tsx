@@ -7,8 +7,8 @@ import { db } from '@/integrations/firebase/config';
 import { ref, get } from 'firebase/database';
 import { useAuth } from '@/hooks/useAuth';
 import { useFriends } from '@/hooks/useFriends';
-import { getLevelBadge, getExpProgress } from '@/lib/levelUtils';
-import { Crown, UserPlus, MessageCircle, Loader2, Clock, MessageSquare, Users } from 'lucide-react';
+import { getLevelBadge } from '@/lib/levelUtils';
+import { Crown, UserPlus, MessageCircle, Loader2, Users } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 interface UserProfile {
@@ -46,16 +46,39 @@ export default function UserProfilePage() {
 
   useEffect(() => {
     if (!userId) return;
-    Promise.all([
-      supabase.from('profiles').select('*').eq('user_id', userId).single(),
-      supabase.from('comments').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(50),
-      supabase.from('friendships').select('id').or(`requester_id.eq.${userId},addressee_id.eq.${userId}`).eq('status', 'accepted'),
-    ]).then(([profileRes, commentsRes, friendsRes]) => {
-      setProfile(profileRes.data as UserProfile | null);
-      setComments((commentsRes.data as UserComment[]) || []);
-      setFriendCount(friendsRes.data?.length || 0);
+    const fetchData = async () => {
+      try {
+        const profileSnap = await get(ref(db, `profiles/${userId}`));
+        if (profileSnap.exists()) {
+          setProfile({ user_id: userId, ...profileSnap.val() } as UserProfile);
+        }
+
+        const userComments: UserComment[] = [];
+        const commentsSnap = await get(ref(db, 'comments'));
+        if (commentsSnap.exists()) {
+          commentsSnap.forEach((child) => {
+            const val = child.val();
+            if (val.user_id === userId) {
+              userComments.push({ id: child.key!, ...val });
+            }
+          });
+        }
+        userComments.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        setComments(userComments.slice(0, 50));
+
+        let fc = 0;
+        const friendsSnap = await get(ref(db, 'friendships'));
+        if (friendsSnap.exists()) {
+          friendsSnap.forEach((child) => {
+            const val = child.val();
+            if (val.status === 'accepted' && (val.requester_id === userId || val.addressee_id === userId)) fc++;
+          });
+        }
+        setFriendCount(fc);
+      } catch {}
       setLoading(false);
-    });
+    };
+    fetchData();
   }, [userId]);
 
   if (loading) return (
@@ -112,7 +135,6 @@ export default function UserProfilePage() {
           </div>
         </motion.div>
 
-        {/* Actions */}
         {!isMe && user && (
           <div className="flex gap-2">
             {!isFriend ? (
@@ -129,7 +151,6 @@ export default function UserProfilePage() {
 
         <LevelBadge level={profile.level} exp={profile.exp} isPremium={profile.is_premium} coins={isMe ? profile.coins : 0} badge={profile.badge} />
 
-        {/* Tabs */}
         <div className="flex gap-2">
           <button onClick={() => setTab('info')} className={`px-4 py-2 rounded-xl text-xs font-medium transition ${tab === 'info' ? 'gradient-bg text-primary-foreground' : 'bg-card text-muted-foreground'}`}>
             Info
@@ -144,7 +165,7 @@ export default function UserProfilePage() {
             <div className="p-3 bg-card rounded-xl space-y-2">
               <p className="text-sm text-muted-foreground"><span className="font-medium text-foreground">EXP Total:</span> {profile.exp.toLocaleString()}</p>
               <p className="text-sm text-muted-foreground"><span className="font-medium text-foreground">Status:</span> {profile.is_premium ? 'Premium' : 'Free'}</p>
-              <p className="text-sm text-muted-foreground"><span className="font-medium text-foreground">Bergabung:</span> {new Date(profile.created_at).toLocaleDateString('id-ID')}</p>
+              {profile.created_at && <p className="text-sm text-muted-foreground"><span className="font-medium text-foreground">Bergabung:</span> {new Date(profile.created_at).toLocaleDateString('id-ID')}</p>}
             </div>
           </div>
         )}

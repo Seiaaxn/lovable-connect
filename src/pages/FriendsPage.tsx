@@ -24,13 +24,19 @@ export default function FriendsPage() {
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
     setSearching(true);
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .ilike('display_name', `%${searchQuery}%`)
-      .neq('user_id', user.uid)
-      .limit(20);
-    setSearchResults((data as Profile[]) || []);
+    const results: Profile[] = [];
+    try {
+      const snapshot = await get(ref(db, 'profiles'));
+      if (snapshot.exists()) {
+        snapshot.forEach((child) => {
+          const val = child.val();
+          if (val.user_id !== user.uid && val.display_name && val.display_name.toLowerCase().includes(searchQuery.toLowerCase())) {
+            results.push(val as Profile);
+          }
+        });
+      }
+    } catch {}
+    setSearchResults(results.slice(0, 20));
     setSearching(false);
   };
 
@@ -123,7 +129,7 @@ export default function FriendsPage() {
               </div>
               {searching ? <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div> :
                 searchResults.map(p => (
-                  <div key={p.id} className="flex items-center gap-3 p-3 bg-card rounded-xl">
+                  <div key={p.user_id} className="flex items-center gap-3 p-3 bg-card rounded-xl">
                     <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center overflow-hidden">
                       {p.avatar_url ? <img src={p.avatar_url} className="w-full h-full object-cover" /> :
                         <span className="text-sm font-bold text-primary">{(p.display_name || '?').charAt(0).toUpperCase()}</span>}
