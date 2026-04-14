@@ -46,99 +46,35 @@ export default function DiscussionPage() {
 
   const fetchMessages = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from('discussions')
-      .select('*')
-      .eq('room', activeRoom)
-      .order('created_at', { ascending: true })
-      .limit(100);
+    const roomRef = ref(db, `discussions/${activeRoom}`);
+    const snapshot = await get(roomRef);
 
-    if (data && data.length > 0) {
+    if (snapshot.exists()) {
+      const data: any[] = [];
+      snapshot.forEach((child) => { data.push({ ...child.val(), id: child.key! }); });
+      data.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+
       const userIds = [...new Set(data.map(d => d.user_id))];
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('user_id, display_name, avatar_url, level, badge, is_premium')
-        .in('user_id', userIds);
-
-      const enriched = data.map(d => ({
-        ...d,
-        profile: (profiles as any[])?.find(p => p.user_id === d.user_id),
-      }));
-      setMessages(enriched);
+      const profiles: Record<string, any> = {};
+      for (const uid of userIds) {
+        const pSnap = await get(ref(db, `profiles/${uid}`));
+        if (pSnap.exists()) profiles[uid] = { ...pSnap.val(), user_id: uid };
+      }
+      setMessages(data.map(d => ({ ...d, profile: profiles[d.user_id] })).slice(-100));
     } else {
       setMessages([]);
     }
     setLoading(false);
   }, [activeRoom]);
 
-  useEffect(() => {
-    fetchMessages();
-  }, [fetchMessages]);
+  useEffect(() => { fetchMessages(); }, [fetchMessages]);
 
   // Realtime subscription
   useEffect(() => {
-    const channel = supabase
-      .channel(`discussion-${activeRoom}`)
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'discussions',
-        filter: `room=eq.${activeRoom}`,
-      }, async (payload) => {
-        const msg = payload.new as any;
-        // Fetch profile for new message
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('user_id, display_name, avatar_url, level, badge, is_premium')
-          .eq('user_id', msg.user_id)
-          .limit(1);
-        const enriched = {
-          ...msg,
-          profile: (profiles as any[])?.[0],
-        };
-        setMessages(prev => [...prev, enriched]);
-      })
-      .on('postgres_changes', {
-        event: 'DELETE',
-        schema: 'public',
-        table: 'discussions',
-      }, (payload) => {
-        setMessages(prev => prev.filter(m => m.id !== (payload.old as any).id));
-      })
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
-  }, [activeRoom]);
-
-  // Presence tracking for online users
-  useEffect(() => {
-    if (!user || !profile) return;
-    const presenceChannel = supabase.channel('discussion-presence', {
-      config: { presence: { key: user.uid } },
-    });
-
-    presenceChannel
-      .on('presence', { event: 'sync' }, () => {
-        const state = presenceChannel.presenceState();
-        const users = Object.values(state).flat().map((p: any) => ({
-          user_id: p.user_id,
-          display_name: p.display_name,
-          avatar_url: p.avatar_url,
-        }));
-        setOnlineUsers(users);
-      })
-      .subscribe(async (status) => {
-        if (status === 'SUBSCRIBED') {
-          await presenceChannel.track({
-            user_id: user.uid,
-            display_name: profile.display_name || 'User',
-            avatar_url: profile.avatar_url,
-          });
-        }
-      });
-
-    return () => { supabase.removeChannel(presenceChannel); };
-  }, [user, profile]);
+    const roomRef = ref(db, `discussions/${activeRoom}`);
+    const unsub = onValue(roomRef, () => { fetchMessages(); });
+    return () => unsub();
+  }, [activeRoom, fetchMessages]);
 
   // Auto scroll to bottom
   useEffect(() => {
@@ -150,16 +86,17 @@ export default function DiscussionPage() {
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !newMessage.trim()) return;
-    await supabase.from('discussions').insert([{
+    await push(ref(db, `discussions/${activeRoom}`), {
       user_id: user.uid,
       room: activeRoom,
       message: newMessage.trim(),
-    }]);
+      created_at: new Date().toISOString(),
+    });
     setNewMessage('');
   };
 
   const handleDelete = async (id: string) => {
-    await supabase.from('discussions').delete().eq('id', id);
+    await remove(ref(db, `discussions/${activeRoom}/${id}`));
   };
 
   const formatTime = (ts: string) => {
@@ -239,7 +176,7 @@ export default function DiscussionPage() {
           ) : (
             <AnimatePresence initial={false}>
               {messages.map((msg) => {
-                const isMe = user?.id === msg.user_id;
+                const isMe = user?.uid === msg.user_id;
                 const badge = msg.profile ? getLevelBadge(msg.profile.level) : null;
                 return (
                   <motion.div
