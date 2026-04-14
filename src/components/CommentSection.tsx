@@ -42,79 +42,78 @@ export function CommentSection({ contentId, contentType }: CommentSectionProps) 
   const [loading, setLoading] = useState(true);
 
   const fetchComments = useCallback(async () => {
-    const { data } = await supabase
-      .from('comments')
-      .select('*')
-      .eq('content_id', contentId)
-      .eq('content_type', contentType)
-      .order('created_at', { ascending: false });
+    const commentsRef = ref(db, `comments/${contentType}/${contentId}`);
+    const snapshot = await get(commentsRef);
+    
+    if (!snapshot.exists()) { setComments([]); setLoading(false); return; }
 
-    if (data && data.length > 0) {
-      const userIds = [...new Set(data.map(c => c.user_id))];
-      const { data: profiles } = await supabase.from('profiles').select('user_id, display_name, avatar_url, level, badge, is_premium').in('user_id', userIds);
+    const data: Comment[] = [];
+    snapshot.forEach((child) => {
+      data.push({ ...child.val(), id: child.key! });
+    });
 
-      const enriched = data.map(c => ({
-        ...c,
-        parent_id: (c as any).parent_id || null,
-        profile: (profiles as any[])?.find(p => p.user_id === c.user_id),
-      }));
-
-      // Build tree
-      const topLevel = enriched.filter(c => !c.parent_id);
-      const replies = enriched.filter(c => c.parent_id);
-      const tree = topLevel.map(c => ({
-        ...c,
-        replies: replies.filter(r => r.parent_id === c.id).sort((a, b) =>
-          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-        ),
-      }));
-      setComments(tree);
-    } else {
-      setComments([]);
+    const userIds = [...new Set(data.map(c => c.user_id))];
+    const profiles: Record<string, any> = {};
+    for (const uid of userIds) {
+      const pSnap = await get(ref(db, `profiles/${uid}`));
+      if (pSnap.exists()) profiles[uid] = { ...pSnap.val(), user_id: uid };
     }
+
+    const enriched = data.map(c => ({
+      ...c,
+      parent_id: c.parent_id || null,
+      profile: profiles[c.user_id],
+    }));
+
+    const topLevel = enriched.filter(c => !c.parent_id).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    const replies = enriched.filter(c => c.parent_id);
+    const tree = topLevel.map(c => ({
+      ...c,
+      replies: replies.filter(r => r.parent_id === c.id).sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()),
+    }));
+    setComments(tree);
     setLoading(false);
   }, [contentId, contentType]);
 
   useEffect(() => { fetchComments(); }, [fetchComments]);
 
   useEffect(() => {
-    const channel = supabase
-      .channel(`comments-${contentId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'comments', filter: `content_id=eq.${contentId}` }, () => {
-        fetchComments();
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [contentId, fetchComments]);
+    const commentsRef = ref(db, `comments/${contentType}/${contentId}`);
+    const unsub = onValue(commentsRef, () => { fetchComments(); });
+    return () => unsub();
+  }, [contentId, contentType, fetchComments]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !newComment.trim()) return;
-    await supabase.from('comments').insert([{
+    await push(ref(db, `comments/${contentType}/${contentId}`), {
       user_id: user.uid,
       content_id: contentId,
       content_type: contentType,
       text: newComment.trim(),
-    }] as any);
+      parent_id: null,
+      created_at: new Date().toISOString(),
+    });
     setNewComment('');
   };
 
   const handleReply = async (parentId: string) => {
     if (!user || !replyText.trim()) return;
-    await supabase.from('comments').insert([{
+    await push(ref(db, `comments/${contentType}/${contentId}`), {
       user_id: user.uid,
       content_id: contentId,
       content_type: contentType,
       text: replyText.trim(),
       parent_id: parentId,
-    }] as any);
+      created_at: new Date().toISOString(),
+    });
     setReplyText('');
     setReplyTo(null);
     setExpandedReplies(prev => new Set(prev).add(parentId));
   };
 
   const handleDelete = async (id: string) => {
-    await supabase.from('comments').delete().eq('id', id);
+    await remove(ref(db, `comments/${contentType}/${contentId}/${id}`));
   };
 
   const toggleReplies = (id: string) => {
