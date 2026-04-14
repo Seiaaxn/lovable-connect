@@ -67,7 +67,7 @@ export default function LeaderboardPage() {
           <div className="space-y-2">
             {users.map((u, i) => {
               const badge = getLevelBadge(u.level);
-              const isMe = user?.id === u.user_id;
+              const isMe = user?.uid === u.user_id;
               return (
                 <motion.div
                   key={u.user_id}

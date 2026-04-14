@@ -27,8 +27,8 @@ export default function ProfilePage() {
 
   if (!user) return null;
 
-  const displayName = profile?.display_name || user.user_metadata?.full_name || user.email?.split('@')[0] || 'User';
-  const avatar = profile?.avatar_url || user.user_metadata?.avatar_url;
+  const displayName = profile?.display_name || user.displayName || user.email?.split('@')[0] || 'User';
+  const avatar = profile?.avatar_url || user.photoURL;
 
   const handleLogout = async () => {
     await signOut();
