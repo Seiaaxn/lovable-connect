@@ -3,7 +3,8 @@ import { Header } from '@/components/Header';
 import { BottomNav } from '@/components/BottomNav';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/integrations/firebase/config';
+import { ref, get, push, remove, update, onValue, off } from 'firebase/database';
 import { Trophy, Lock, CheckCircle2, Star, Eye, MessageSquare, Clock, Users, Flame, Heart, BookOpen, Crown, Swords, Zap, Target, Medal } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -128,8 +129,8 @@ export default function AchievementsPage() {
     }
 
     Promise.all([
-      supabase.from('comments').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
-      supabase.from('friendships').select('id', { count: 'exact', head: true }).or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`).eq('status', 'accepted'),
+      supabase.from('comments').select('id', { count: 'exact', head: true }).eq('user_id', user.uid),
+      supabase.from('friendships').select('id', { count: 'exact', head: true }).or(`requester_id.eq.${user.uid},addressee_id.eq.${user.uid}`).eq('status', 'accepted'),
     ]).then(([comments, friends]) => {
       setStats({
         level: profile?.level || 0,

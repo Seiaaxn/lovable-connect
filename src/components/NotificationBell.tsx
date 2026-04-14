@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Bell } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/integrations/firebase/config';
+import { ref, get, push, remove, update, onValue, off } from 'firebase/database';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface Notification {
@@ -27,14 +28,14 @@ export function NotificationBell() {
       Notification.requestPermission();
     }
     const fetchNotifs = async () => {
-      const { data } = await supabase.from('notifications').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(20);
+      const { data } = await supabase.from('notifications').select('*').eq('user_id', user.uid).order('created_at', { ascending: false }).limit(20);
       setNotifications((data as Notification[]) || []);
     };
     fetchNotifs();
 
     const channel = supabase
-      .channel('notif-' + user.id)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` }, (payload) => {
+      .channel('notif-' + user.uid)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.uid}` }, (payload) => {
         setNotifications(prev => [payload.new as Notification, ...prev]);
         if ('Notification' in window && Notification.permission === 'granted') {
           new window.Notification((payload.new as Notification).title, { body: (payload.new as Notification).message || '' });

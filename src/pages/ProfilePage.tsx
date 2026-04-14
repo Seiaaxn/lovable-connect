@@ -76,7 +76,7 @@ export default function ProfilePage() {
               )}
             </div>
             <p className="text-xs text-muted-foreground">{user.email}</p>
-            <p className="text-[10px] text-muted-foreground/70">ID: {user.id.slice(0, 8)}</p>
+            <p className="text-[10px] text-muted-foreground/70">ID: {user.uid.slice(0, 8)}</p>
           </div>
         </motion.div>
 

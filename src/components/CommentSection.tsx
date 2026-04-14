@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { MessageSquare, Send, Trash2, Reply, ChevronDown, ChevronUp } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/integrations/firebase/config';
+import { ref, get, push, remove, update, onValue, off } from 'firebase/database';
 import { Link } from 'react-router-dom';
 import { getLevelBadge } from '@/lib/levelUtils';
 
@@ -90,7 +91,7 @@ export function CommentSection({ contentId, contentType }: CommentSectionProps) 
     e.preventDefault();
     if (!user || !newComment.trim()) return;
     await supabase.from('comments').insert([{
-      user_id: user.id,
+      user_id: user.uid,
       content_id: contentId,
       content_type: contentType,
       text: newComment.trim(),
@@ -101,7 +102,7 @@ export function CommentSection({ contentId, contentType }: CommentSectionProps) 
   const handleReply = async (parentId: string) => {
     if (!user || !replyText.trim()) return;
     await supabase.from('comments').insert([{
-      user_id: user.id,
+      user_id: user.uid,
       content_id: contentId,
       content_type: contentType,
       text: replyText.trim(),
@@ -171,7 +172,7 @@ export function CommentSection({ contentId, contentType }: CommentSectionProps) 
               )}
             </div>
           </div>
-          {user && user.id === comment.user_id && (
+          {user && user.uid === comment.user_id && (
             <button onClick={() => handleDelete(comment.id)} className="p-1 text-muted-foreground hover:text-destructive">
               <Trash2 className="w-3.5 h-3.5" />
             </button>

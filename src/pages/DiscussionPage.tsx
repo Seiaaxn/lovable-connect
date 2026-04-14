@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/integrations/firebase/config';
+import { ref, get, push, remove, update, onValue, off } from 'firebase/database';
 import { Header } from '@/components/Header';
 import { BottomNav } from '@/components/BottomNav';
 import { Link } from 'react-router-dom';
@@ -113,7 +114,7 @@ export default function DiscussionPage() {
   useEffect(() => {
     if (!user || !profile) return;
     const presenceChannel = supabase.channel('discussion-presence', {
-      config: { presence: { key: user.id } },
+      config: { presence: { key: user.uid } },
     });
 
     presenceChannel
@@ -129,7 +130,7 @@ export default function DiscussionPage() {
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
           await presenceChannel.track({
-            user_id: user.id,
+            user_id: user.uid,
             display_name: profile.display_name || 'User',
             avatar_url: profile.avatar_url,
           });
@@ -150,7 +151,7 @@ export default function DiscussionPage() {
     e.preventDefault();
     if (!user || !newMessage.trim()) return;
     await supabase.from('discussions').insert([{
-      user_id: user.id,
+      user_id: user.uid,
       room: activeRoom,
       message: newMessage.trim(),
     }]);

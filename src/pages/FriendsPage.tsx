@@ -4,7 +4,8 @@ import { Header } from '@/components/Header';
 import { BottomNav } from '@/components/BottomNav';
 import { useAuth } from '@/hooks/useAuth';
 import { useFriends } from '@/hooks/useFriends';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/integrations/firebase/config';
+import { ref, get, push, remove, update, onValue, off } from 'firebase/database';
 import { Users, UserPlus, Check, X, MessageCircle, Search, Loader2, Crown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Profile } from '@/hooks/useProfile';
@@ -27,7 +28,7 @@ export default function FriendsPage() {
       .from('profiles')
       .select('*')
       .ilike('display_name', `%${searchQuery}%`)
-      .neq('user_id', user.id)
+      .neq('user_id', user.uid)
       .limit(20);
     setSearchResults((data as Profile[]) || []);
     setSearching(false);

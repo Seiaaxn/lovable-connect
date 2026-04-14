@@ -62,7 +62,7 @@ export default function ChatPage() {
         {loading ? <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div> :
           messages.length === 0 ? <p className="text-center text-muted-foreground py-8 text-sm">Mulai percakapan!</p> :
           messages.map((msg, i) => {
-            const isMe = msg.sender_id === user.id;
+            const isMe = msg.sender_id === user.uid;
             return (
               <motion.div key={msg.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(i * 0.02, 0.5) }} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[75%] px-3.5 py-2 rounded-2xl text-sm ${isMe ? 'gradient-bg text-primary-foreground rounded-br-md' : 'bg-card text-foreground rounded-bl-md'}`}>

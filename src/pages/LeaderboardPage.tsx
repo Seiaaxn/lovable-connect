@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Header } from '@/components/Header';
 import { BottomNav } from '@/components/BottomNav';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/integrations/firebase/config';
+import { ref, get, push, remove, update, onValue, off } from 'firebase/database';
 import { useAuth } from '@/hooks/useAuth';
 import { getLevelBadge } from '@/lib/levelUtils';
 import { Trophy, Crown, Medal, Loader2 } from 'lucide-react';
@@ -43,7 +44,7 @@ export default function LeaderboardPage() {
     return <span className="w-5 h-5 text-center text-xs font-bold text-muted-foreground">#{rank}</span>;
   };
 
-  const myRank = user ? users.findIndex(u => u.user_id === user.id) + 1 : 0;
+  const myRank = user ? users.findIndex(u => u.user_id === user.uid) + 1 : 0;
 
   return (
     <main className="min-h-screen bg-background">

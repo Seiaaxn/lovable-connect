@@ -4,7 +4,8 @@ import { Header } from '@/components/Header';
 import { BottomNav } from '@/components/BottomNav';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/integrations/firebase/config';
+import { ref, get, push, remove, update, onValue, off } from 'firebase/database';
 import { Crown, Gift, Users, Loader2, Check, Search } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
@@ -36,11 +37,11 @@ export default function SharePremiumPage() {
     const { data: friendships } = await supabase
       .from('friendships')
       .select('requester_id, addressee_id')
-      .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`)
+      .or(`requester_id.eq.${user.uid},addressee_id.eq.${user.uid}`)
       .eq('status', 'accepted');
 
     if (friendships && friendships.length > 0) {
-      const friendIds = friendships.map(f => f.requester_id === user.id ? f.addressee_id : f.requester_id);
+      const friendIds = friendships.map(f => f.requester_id === user.uid ? f.addressee_id : f.requester_id);
       const { data: profiles } = await supabase
         .from('profiles')
         .select('user_id, display_name, avatar_url, is_premium')
