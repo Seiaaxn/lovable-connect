@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { Header } from '@/components/Header';
 import { BottomNav } from '@/components/BottomNav';
 import { db } from '@/integrations/firebase/config';
-import { ref, get, push, remove, update, onValue, off } from 'firebase/database';
+import { ref, get } from 'firebase/database';
 import { useAuth } from '@/hooks/useAuth';
 import { getLevelBadge } from '@/lib/levelUtils';
 import { Trophy, Crown, Medal, Loader2 } from 'lucide-react';
@@ -25,16 +25,20 @@ export default function LeaderboardPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase
-      .from('profiles')
-      .select('user_id, display_name, avatar_url, level, exp, is_premium, badge')
-      .order('level', { ascending: false })
-      .order('exp', { ascending: false })
-      .limit(100)
-      .then(({ data }) => {
-        setUsers((data as LeaderboardUser[]) || []);
-        setLoading(false);
-      });
+    const fetchUsers = async () => {
+      const snapshot = await get(ref(db, 'profiles'));
+      if (snapshot.exists()) {
+        const users: LeaderboardUser[] = [];
+        snapshot.forEach((child) => {
+          const val = child.val();
+          users.push({ user_id: val.user_id || child.key!, display_name: val.display_name, avatar_url: val.avatar_url, level: val.level || 1, exp: val.exp || 0, is_premium: val.is_premium || false, badge: val.badge || null });
+        });
+        users.sort((a, b) => b.level - a.level || b.exp - a.exp);
+        setUsers(users.slice(0, 100));
+      }
+      setLoading(false);
+    };
+    fetchUsers();
   }, []);
 
   const getRankIcon = (rank: number) => {

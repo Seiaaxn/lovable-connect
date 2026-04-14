@@ -5,7 +5,7 @@ import { BottomNav } from '@/components/BottomNav';
 import { useAuth } from '@/hooks/useAuth';
 import { useFriends } from '@/hooks/useFriends';
 import { db } from '@/integrations/firebase/config';
-import { ref, get, push, remove, update, onValue, off } from 'firebase/database';
+import { ref, get } from 'firebase/database';
 import { Users, UserPlus, Check, X, MessageCircle, Search, Loader2, Crown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Profile } from '@/hooks/useProfile';

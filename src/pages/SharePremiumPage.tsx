@@ -5,7 +5,7 @@ import { BottomNav } from '@/components/BottomNav';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 import { db } from '@/integrations/firebase/config';
-import { ref, get, push, remove, update, onValue, off } from 'firebase/database';
+import { ref, get, update, push } from 'firebase/database';
 import { Crown, Gift, Users, Loader2, Check, Search } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
@@ -70,19 +70,18 @@ export default function SharePremiumPage() {
     // Give premium to friend
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + SHARE_DAYS);
-    await supabase.from('profiles').update({
-      is_premium: true,
-      premium_expires_at: expiresAt.toISOString(),
-    }).eq('user_id', friendId);
+    await update(ref(db, `profiles/${friendId}`), { is_premium: true, premium_expires_at: expiresAt.toISOString() });
 
     // Send notification
     const friendProfile = friends.find(f => f.user_id === friendId);
-    await supabase.from('notifications').insert([{
+    await push(ref(db, `notifications/${friendId}`), {
       user_id: friendId,
       title: 'Premium Diterima!',
       message: `${profile.display_name || 'Seseorang'} berbagi premium ${SHARE_DAYS} hari denganmu!`,
       type: 'gift',
-    }]);
+      is_read: false,
+      created_at: new Date().toISOString(),
+    });
 
     setFriends(prev => prev.map(f => f.user_id === friendId ? { ...f, is_premium: true } : f));
     toast.success(`Premium ${SHARE_DAYS} hari diberikan ke ${friendProfile?.display_name || 'teman'}! (-${SHARE_COST} koin)`);

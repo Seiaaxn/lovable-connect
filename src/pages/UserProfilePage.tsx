@@ -4,7 +4,7 @@ import { Header } from '@/components/Header';
 import { BottomNav } from '@/components/BottomNav';
 import { LevelBadge } from '@/components/LevelBadge';
 import { db } from '@/integrations/firebase/config';
-import { ref, get, push, remove, update, onValue, off } from 'firebase/database';
+import { ref, get } from 'firebase/database';
 import { useAuth } from '@/hooks/useAuth';
 import { useFriends } from '@/hooks/useFriends';
 import { getLevelBadge, getExpProgress } from '@/lib/levelUtils';
@@ -41,7 +41,7 @@ export default function UserProfilePage() {
   const [tab, setTab] = useState<'info' | 'comments'>('info');
   const [friendCount, setFriendCount] = useState(0);
 
-  const isMe = user?.id === userId;
+  const isMe = user?.uid === userId;
   const isFriend = friends.some(f => f.friend_profile?.user_id === userId);
 
   useEffect(() => {

@@ -4,7 +4,7 @@ import { BottomNav } from '@/components/BottomNav';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 import { db } from '@/integrations/firebase/config';
-import { ref, get, push, remove, update, onValue, off } from 'firebase/database';
+import { ref, get } from 'firebase/database';
 import { Trophy, Lock, CheckCircle2, Star, Eye, MessageSquare, Clock, Users, Flame, Heart, BookOpen, Crown, Swords, Zap, Target, Medal } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
