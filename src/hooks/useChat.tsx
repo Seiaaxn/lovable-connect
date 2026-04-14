@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { useState, useEffect, useCallback } from 'react';
+import { db } from '@/integrations/firebase/config';
+import { ref, push, onValue, update, query, orderByChild, off } from 'firebase/database';
 import { useAuth } from './useAuth';
 
 export interface Message {
@@ -15,63 +16,42 @@ export function useChat(friendId: string | null) {
   const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
-  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
-
-  const fetchMessages = useCallback(async () => {
-    if (!user || !friendId) return;
-    setLoading(true);
-    const { data } = await supabase
-      .from('messages')
-      .select('*')
-      .or(`and(sender_id.eq.${user.id},receiver_id.eq.${friendId}),and(sender_id.eq.${friendId},receiver_id.eq.${user.id})`)
-      .order('created_at', { ascending: true })
-      .limit(100);
-    setMessages((data as Message[]) || []);
-    setLoading(false);
-
-    // Mark as read
-    if (data?.length) {
-      await supabase.from('messages').update({ is_read: true })
-        .eq('receiver_id', user.id).eq('sender_id', friendId).eq('is_read', false);
-    }
-  }, [user, friendId]);
 
   useEffect(() => {
-    fetchMessages();
+    if (!user || !friendId) { setLoading(false); return; }
+    
+    const chatId = [user.uid, friendId].sort().join('_');
+    const messagesRef = ref(db, `chats/${chatId}/messages`);
+    const q = query(messagesRef, orderByChild('created_at'));
+    
+    const unsub = onValue(q, (snapshot) => {
+      const msgs: Message[] = [];
+      snapshot.forEach((child) => {
+        const val = child.val();
+        msgs.push({ ...val, id: child.key! });
+        if (val.sender_id === friendId && !val.is_read) {
+          update(ref(db, `chats/${chatId}/messages/${child.key}`), { is_read: true });
+        }
+      });
+      setMessages(msgs);
+      setLoading(false);
+    });
 
-    if (user && friendId) {
-      channelRef.current = supabase
-        .channel(`chat-${[user.id, friendId].sort().join('-')}`)
-        .on('postgres_changes', {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages',
-        }, (payload) => {
-          const msg = payload.new as Message;
-          if (
-            (msg.sender_id === user.id && msg.receiver_id === friendId) ||
-            (msg.sender_id === friendId && msg.receiver_id === user.id)
-          ) {
-            setMessages(prev => [...prev, msg]);
-            if (msg.sender_id === friendId) {
-              supabase.from('messages').update({ is_read: true }).eq('id', msg.id);
-            }
-          }
-        })
-        .subscribe();
-    }
-
-    return () => { channelRef.current?.unsubscribe(); };
-  }, [user, friendId, fetchMessages]);
+    return () => off(messagesRef);
+  }, [user, friendId]);
 
   const sendMessage = useCallback(async (content: string) => {
     if (!user || !friendId || !content.trim()) return false;
-    const { error } = await supabase.from('messages').insert({
-      sender_id: user.id,
+    const chatId = [user.uid, friendId].sort().join('_');
+    const messagesRef = ref(db, `chats/${chatId}/messages`);
+    await push(messagesRef, {
+      sender_id: user.uid,
       receiver_id: friendId,
       content: content.trim(),
+      is_read: false,
+      created_at: new Date().toISOString(),
     });
-    return !error;
+    return true;
   }, [user, friendId]);
 
   return { messages, loading, sendMessage };
