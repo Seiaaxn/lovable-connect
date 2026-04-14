@@ -33,7 +33,6 @@ interface UserStats {
 }
 
 const achievements: Achievement[] = [
-  // Watch
   { id: 'first_watch', title: 'Penonton Pertama', description: 'Tonton 1 anime/donghua', icon: Eye, category: 'watch', requirement: 1, reward: { exp: 50, coins: 10 }, checkValue: s => s.watchCount },
   { id: 'watch_10', title: 'Penggemar Anime', description: 'Tonton 10 anime/donghua', icon: Eye, category: 'watch', requirement: 10, reward: { exp: 200, coins: 30 }, checkValue: s => s.watchCount },
   { id: 'watch_25', title: 'Binge Watcher', description: 'Tonton 25 anime/donghua', icon: Eye, category: 'watch', requirement: 25, reward: { exp: 350, coins: 60 }, checkValue: s => s.watchCount },
@@ -44,7 +43,6 @@ const achievements: Achievement[] = [
   { id: 'first_read', title: 'Pembaca Pertama', description: 'Baca 1 chapter komik', icon: BookOpen, category: 'watch', requirement: 1, reward: { exp: 30, coins: 5 }, checkValue: s => s.readCount },
   { id: 'read_20', title: 'Bookworm', description: 'Baca 20 chapter komik', icon: BookOpen, category: 'watch', requirement: 20, reward: { exp: 250, coins: 50 }, checkValue: s => s.readCount },
   { id: 'read_100', title: 'Manga Master', description: 'Baca 100 chapter komik', icon: BookOpen, category: 'watch', requirement: 100, reward: { exp: 800, coins: 150 }, checkValue: s => s.readCount },
-  // Social
   { id: 'first_comment', title: 'Komentator', description: 'Tulis 1 komentar', icon: MessageSquare, category: 'social', requirement: 1, reward: { exp: 30, coins: 5 }, checkValue: s => s.commentCount },
   { id: 'comment_10', title: 'Aktif Berkomentar', description: 'Tulis 10 komentar', icon: MessageSquare, category: 'social', requirement: 10, reward: { exp: 150, coins: 25 }, checkValue: s => s.commentCount },
   { id: 'comment_50', title: 'Diskusi Master', description: 'Tulis 50 komentar', icon: MessageSquare, category: 'social', requirement: 50, reward: { exp: 400, coins: 75 }, checkValue: s => s.commentCount },
@@ -57,7 +55,6 @@ const achievements: Achievement[] = [
   { id: 'first_fav', title: 'Kolektor', description: 'Simpan 1 favorit', icon: Heart, category: 'social', requirement: 1, reward: { exp: 20, coins: 5 }, checkValue: s => s.favoriteCount },
   { id: 'fav_10', title: 'Kolektor Handal', description: 'Simpan 10 favorit', icon: Heart, category: 'social', requirement: 10, reward: { exp: 150, coins: 30 }, checkValue: s => s.favoriteCount },
   { id: 'fav_50', title: 'Otaku Collector', description: 'Simpan 50 favorit', icon: Heart, category: 'social', requirement: 50, reward: { exp: 500, coins: 100 }, checkValue: s => s.favoriteCount },
-  // Level
   { id: 'level_5', title: 'Naik Level', description: 'Capai level 5', icon: Trophy, category: 'level', requirement: 5, reward: { exp: 100, coins: 20 }, checkValue: s => s.level },
   { id: 'level_10', title: 'Veteran', description: 'Capai level 10', icon: Trophy, category: 'level', requirement: 10, reward: { exp: 300, coins: 50 }, checkValue: s => s.level },
   { id: 'level_25', title: 'Elite', description: 'Capai level 25', icon: Trophy, category: 'level', requirement: 25, reward: { exp: 750, coins: 150 }, checkValue: s => s.level },
@@ -65,7 +62,6 @@ const achievements: Achievement[] = [
   { id: 'level_100', title: 'Mythical', description: 'Capai level 100', icon: Crown, category: 'level', requirement: 100, reward: { exp: 5000, coins: 1000 }, checkValue: s => s.level },
   { id: 'coins_1000', title: 'Kaya Raya', description: 'Kumpulkan 1000 koin', icon: Target, category: 'level', requirement: 1000, reward: { exp: 500, coins: 100 }, checkValue: s => s.coins },
   { id: 'coins_10000', title: 'Miliarder', description: 'Kumpulkan 10000 koin', icon: Crown, category: 'level', requirement: 10000, reward: { exp: 2000, coins: 500 }, checkValue: s => s.coins },
-  // Streak
   { id: 'streak_3', title: 'Konsisten', description: 'Login 3 hari berturut', icon: Flame, category: 'streak', requirement: 3, reward: { exp: 100, coins: 15 }, checkValue: s => s.loginStreak },
   { id: 'streak_7', title: 'Seminggu Penuh', description: 'Login 7 hari berturut', icon: Flame, category: 'streak', requirement: 7, reward: { exp: 300, coins: 50 }, checkValue: s => s.loginStreak },
   { id: 'streak_14', title: 'Dua Minggu', description: 'Login 14 hari berturut', icon: Flame, category: 'streak', requirement: 14, reward: { exp: 600, coins: 100 }, checkValue: s => s.loginStreak },
@@ -128,15 +124,36 @@ export default function AchievementsPage() {
       try { readCount = JSON.parse(readHistory).filter((h: any) => h.type === 'comic').length; } catch {}
     }
 
-    Promise.all([
-      supabase.from('comments').select('id', { count: 'exact', head: true }).eq('user_id', user.uid),
-      supabase.from('friendships').select('id', { count: 'exact', head: true }).or(`requester_id.eq.${user.uid},addressee_id.eq.${user.uid}`).eq('status', 'accepted'),
-    ]).then(([comments, friends]) => {
+    // Fetch comment and friend counts from Firebase
+    const fetchStats = async () => {
+      let commentCount = 0;
+      let friendCount = 0;
+
+      try {
+        const commentsSnap = await get(ref(db, 'comments'));
+        if (commentsSnap.exists()) {
+          commentsSnap.forEach((child) => {
+            const val = child.val();
+            if (val.user_id === user.uid) commentCount++;
+          });
+        }
+      } catch {}
+
+      try {
+        const friendsSnap = await get(ref(db, 'friendships'));
+        if (friendsSnap.exists()) {
+          friendsSnap.forEach((child) => {
+            const val = child.val();
+            if (val.status === 'accepted' && (val.requester_id === user.uid || val.addressee_id === user.uid)) friendCount++;
+          });
+        }
+      } catch {}
+
       setStats({
         level: profile?.level || 0,
         exp: profile?.exp || 0,
-        commentCount: comments.count || 0,
-        friendCount: friends.count || 0,
+        commentCount,
+        friendCount,
         loginStreak: streak,
         watchCount,
         favoriteCount,
@@ -144,7 +161,9 @@ export default function AchievementsPage() {
         coins: profile?.coins || 0,
       });
       setLoading(false);
-    });
+    };
+
+    fetchStats();
   }, [user, profile]);
 
   const filtered = tab === 'all' ? achievements : achievements.filter(a => a.category === tab);
@@ -152,7 +171,7 @@ export default function AchievementsPage() {
   const handleClaim = async (achievement: Achievement) => {
     if (claimed.includes(achievement.id)) return;
     await addCoins(achievement.reward.coins);
-    await addExp(achievement.reward.exp, 'achievement', achievement.id, achievement.title);
+    await addExp(achievement.reward.exp);
     claimAchievement(achievement.id);
     setClaimed(prev => [...prev, achievement.id]);
   };
@@ -164,7 +183,7 @@ export default function AchievementsPage() {
       <Header />
       <div className="px-4 py-4 space-y-4 pb-24">
         <div className="flex items-center gap-3">
-          <Trophy className="w-6 h-6 text-gold" />
+          <Trophy className="w-6 h-6 text-yellow-500" />
           <div>
             <h1 className="text-xl font-display font-bold text-foreground">Achievement</h1>
             <p className="text-xs text-muted-foreground">{completedCount}/{achievements.length} selesai</p>
@@ -199,7 +218,7 @@ export default function AchievementsPage() {
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: i * 0.03 }}
-                  className={`p-4 rounded-xl border transition ${completed ? (isClaimed ? 'bg-success/5 border-success/20' : 'bg-primary/5 border-primary/30 animate-pulse-glow') : 'bg-card border-border/30'}`}
+                  className={`p-4 rounded-xl border transition ${completed ? (isClaimed ? 'bg-green-500/5 border-green-500/20' : 'bg-primary/5 border-primary/30') : 'bg-card border-border/30'}`}
                 >
                   <div className="flex items-start gap-3">
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${completed ? 'gradient-bg' : 'bg-muted'}`}>
@@ -212,15 +231,15 @@ export default function AchievementsPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <h3 className="text-sm font-bold text-foreground">{a.title}</h3>
-                        {isClaimed && <span className="text-[9px] text-success bg-success/10 px-1.5 py-0.5 rounded-full font-medium">Diklaim</span>}
+                        {isClaimed && <span className="text-[9px] text-green-500 bg-green-500/10 px-1.5 py-0.5 rounded-full font-medium">Diklaim</span>}
                       </div>
                       <p className="text-xs text-muted-foreground mt-0.5">{a.description}</p>
                       <div className="flex items-center gap-3 mt-1.5">
                         <span className="text-[10px] text-primary font-medium">+{a.reward.exp} EXP</span>
-                        <span className="text-[10px] text-gold font-medium">+{a.reward.coins} Koin</span>
+                        <span className="text-[10px] text-yellow-500 font-medium">+{a.reward.coins} Koin</span>
                       </div>
                       <div className="mt-2 w-full bg-muted rounded-full h-1.5 overflow-hidden">
-                        <div className={`h-full rounded-full transition-all ${completed ? 'bg-success' : 'gradient-bg'}`} style={{ width: `${progress}%` }} />
+                        <div className={`h-full rounded-full transition-all ${completed ? 'bg-green-500' : 'gradient-bg'}`} style={{ width: `${progress}%` }} />
                       </div>
                       <p className="text-[10px] text-muted-foreground mt-0.5">{current}/{a.requirement}</p>
                     </div>
