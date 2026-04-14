@@ -5,7 +5,7 @@ import { BottomNav } from '@/components/BottomNav';
 import { useAuth } from '@/hooks/useAuth';
 import { db } from '@/integrations/firebase/config';
 import { ref, get, remove, update } from 'firebase/database';
-import { Shield, Users, MessageSquare, Trash2, Search, Loader2, Crown, Coins, Ban } from 'lucide-react';
+import { Shield, Users, MessageSquare, Trash2, Search, Loader2, Crown } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 
@@ -34,77 +34,88 @@ export default function AdminPanel() {
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
-    if (!user || user.email !== ADMIN_EMAIL) {
-      navigate('/');
-      return;
-    }
+    if (!user || user.email !== ADMIN_EMAIL) { navigate('/'); return; }
     fetchData();
   }, [user, tab]);
 
   const fetchData = async () => {
     setLoading(true);
     if (tab === 'users') {
-      const { data } = await supabase.from('profiles').select('*').order('level', { ascending: false }).limit(100);
-      setUsers((data as UserProfile[]) || []);
+      const snap = await get(ref(db, 'profiles'));
+      const u: UserProfile[] = [];
+      if (snap.exists()) snap.forEach((c) => { u.push({ ...c.val(), id: c.key!, user_id: c.val().user_id || c.key! }); });
+      u.sort((a, b) => (b.level || 0) - (a.level || 0));
+      setUsers(u);
     } else if (tab === 'comments') {
-      const { data } = await supabase.from('comments').select('*').order('created_at', { ascending: false }).limit(100);
-      if (data && data.length > 0) {
-        const userIds = [...new Set(data.map(c => c.user_id))];
-        const { data: profiles } = await supabase.from('profiles').select('user_id, display_name').in('user_id', userIds);
-        setComments(data.map(c => ({ ...c, display_name: (profiles as any[])?.find(p => p.user_id === c.user_id)?.display_name || 'Unknown' })));
-      } else {
-        setComments([]);
+      const allComments: any[] = [];
+      for (const ct of ['anime', 'donghua', 'comic']) {
+        const snap = await get(ref(db, `comments/${ct}`));
+        if (snap.exists()) snap.forEach((contentChild) => {
+          contentChild.forEach((commentChild) => {
+            allComments.push({ ...commentChild.val(), id: commentChild.key!, content_path: `${ct}/${contentChild.key}` });
+          });
+        });
       }
+      allComments.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      // Enrich with display names
+      const userIds = [...new Set(allComments.map(c => c.user_id))];
+      const names: Record<string, string> = {};
+      for (const uid of userIds) {
+        const p = await get(ref(db, `profiles/${uid}/display_name`));
+        names[uid] = p.exists() ? p.val() : 'Unknown';
+      }
+      setComments(allComments.map(c => ({ ...c, display_name: names[c.user_id] || 'Unknown' })).slice(0, 100));
     } else {
-      const { data } = await supabase.from('discussions').select('*').order('created_at', { ascending: false }).limit(100);
-      if (data && data.length > 0) {
-        const userIds = [...new Set(data.map(d => d.user_id))];
-        const { data: profiles } = await supabase.from('profiles').select('user_id, display_name').in('user_id', userIds);
-        setDiscussions(data.map(d => ({ ...d, display_name: (profiles as any[])?.find(p => p.user_id === d.user_id)?.display_name || 'Unknown' })));
-      } else {
-        setDiscussions([]);
+      const allDisc: any[] = [];
+      const rooms = ['general', 'anime', 'donghua', 'comic', 'offtopic'];
+      for (const room of rooms) {
+        const snap = await get(ref(db, `discussions/${room}`));
+        if (snap.exists()) snap.forEach((child) => { allDisc.push({ ...child.val(), id: child.key!, room_path: room }); });
       }
+      allDisc.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      const userIds = [...new Set(allDisc.map(d => d.user_id))];
+      const names: Record<string, string> = {};
+      for (const uid of userIds) {
+        const p = await get(ref(db, `profiles/${uid}/display_name`));
+        names[uid] = p.exists() ? p.val() : 'Unknown';
+      }
+      setDiscussions(allDisc.map(d => ({ ...d, display_name: names[d.user_id] || 'Unknown' })).slice(0, 100));
     }
     setLoading(false);
   };
 
-  const deleteComment = async (id: string) => {
-    await supabase.from('comments').delete().eq('id', id);
-    setComments(prev => prev.filter(c => c.id !== id));
+  const deleteComment = async (c: any) => {
+    await remove(ref(db, `comments/${c.content_path}/${c.id}`));
+    setComments(prev => prev.filter(x => x.id !== c.id));
     toast.success('Komentar dihapus');
   };
 
-  const deleteDiscussion = async (id: string) => {
-    await supabase.from('discussions').delete().eq('id', id);
-    setDiscussions(prev => prev.filter(d => d.id !== id));
+  const deleteDiscussion = async (d: any) => {
+    await remove(ref(db, `discussions/${d.room_path}/${d.id}`));
+    setDiscussions(prev => prev.filter(x => x.id !== d.id));
     toast.success('Pesan dihapus');
   };
 
   const updateUserBadge = async (userId: string, badge: string) => {
-    await supabase.from('profiles').update({ badge }).eq('user_id', userId);
+    await update(ref(db, `profiles/${userId}`), { badge });
     setUsers(prev => prev.map(u => u.user_id === userId ? { ...u, badge } : u));
     toast.success('Badge diperbarui');
   };
 
   const updateUserCoins = async (userId: string, coins: number) => {
-    await supabase.from('profiles').update({ coins }).eq('user_id', userId);
+    await update(ref(db, `profiles/${userId}`), { coins });
     setUsers(prev => prev.map(u => u.user_id === userId ? { ...u, coins } : u));
     toast.success('Koin diperbarui');
   };
 
   const togglePremium = async (userId: string, isPremium: boolean) => {
     const expiresAt = isPremium ? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString() : null;
-    await supabase.from('profiles').update({
-      is_premium: isPremium,
-      premium_expires_at: expiresAt,
-    }).eq('user_id', userId);
+    await update(ref(db, `profiles/${userId}`), { is_premium: isPremium, premium_expires_at: expiresAt });
     setUsers(prev => prev.map(u => u.user_id === userId ? { ...u, is_premium: isPremium } : u));
     toast.success(isPremium ? 'Premium diaktifkan' : 'Premium dinonaktifkan');
   };
 
-  const filteredUsers = users.filter(u =>
-    !searchQuery || (u.display_name || '').toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredUsers = users.filter(u => !searchQuery || (u.display_name || '').toLowerCase().includes(searchQuery.toLowerCase()));
 
   if (!user || user.email !== ADMIN_EMAIL) return null;
 
@@ -160,7 +171,7 @@ export default function AdminPanel() {
                       {u.badge && <span className="text-[10px] text-yellow-500 bg-yellow-500/10 px-1.5 py-0.5 rounded">{u.badge}</span>}
                       {u.is_premium && <Crown className="w-3.5 h-3.5 text-yellow-500" />}
                     </div>
-                    <p className="text-[10px] text-muted-foreground">Lv.{u.level} • {u.coins.toLocaleString()} koin • EXP: {u.exp.toLocaleString()}</p>
+                    <p className="text-[10px] text-muted-foreground">Lv.{u.level} • {(u.coins || 0).toLocaleString()} koin • EXP: {(u.exp || 0).toLocaleString()}</p>
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -170,7 +181,7 @@ export default function AdminPanel() {
                   <button onClick={() => togglePremium(u.user_id, !u.is_premium)} className="px-2 py-1 text-[10px] bg-yellow-500/10 text-yellow-500 rounded-lg">
                     {u.is_premium ? 'Nonaktif Premium' : 'Aktif Premium'}
                   </button>
-                  <button onClick={() => updateUserCoins(u.user_id, u.coins + 1000)} className="px-2 py-1 text-[10px] bg-gold/10 text-gold rounded-lg">+1000 Koin</button>
+                  <button onClick={() => updateUserCoins(u.user_id, (u.coins || 0) + 1000)} className="px-2 py-1 text-[10px] bg-primary/10 text-primary rounded-lg">+1000 Koin</button>
                 </div>
               </motion.div>
             ))}
@@ -184,7 +195,7 @@ export default function AdminPanel() {
                   <p className="text-[11px] text-muted-foreground mt-0.5 break-words">{c.text}</p>
                   <p className="text-[9px] text-muted-foreground mt-0.5">{c.content_type} • {new Date(c.created_at).toLocaleDateString('id-ID')}</p>
                 </div>
-                <button onClick={() => deleteComment(c.id)} className="p-1.5 text-destructive hover:bg-destructive/10 rounded-lg">
+                <button onClick={() => deleteComment(c)} className="p-1.5 text-destructive hover:bg-destructive/10 rounded-lg">
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>
@@ -200,12 +211,12 @@ export default function AdminPanel() {
                   <p className="text-[11px] text-muted-foreground mt-0.5 break-words">{d.message}</p>
                   <p className="text-[9px] text-muted-foreground mt-0.5">{d.room} • {new Date(d.created_at).toLocaleDateString('id-ID')}</p>
                 </div>
-                <button onClick={() => deleteDiscussion(d.id)} className="p-1.5 text-destructive hover:bg-destructive/10 rounded-lg">
+                <button onClick={() => deleteDiscussion(d)} className="p-1.5 text-destructive hover:bg-destructive/10 rounded-lg">
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>
             ))}
-            {discussions.length === 0 && <p className="text-center text-sm text-muted-foreground py-8">Tidak ada pesan</p>}
+            {discussions.length === 0 && <p className="text-center text-sm text-muted-foreground py-8">Tidak ada diskusi</p>}
           </div>
         )}
       </div>
