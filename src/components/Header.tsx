@@ -8,8 +8,8 @@ export function Header() {
   const { user } = useAuth();
   const { theme, toggleTheme } = useTheme();
 
-  const displayName = user?.displayName || user?.displayName || user?.email?.split('@')[0];
-  const avatar = user?.photoURL || user?.photoURL;
+  const displayName = user?.displayName || user?.email?.split('@')[0];
+  const avatar = user?.photoURL;
 
   return (
     <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-lg border-b border-border/50">
