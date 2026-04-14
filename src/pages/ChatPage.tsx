@@ -24,7 +24,7 @@ export default function ChatPage() {
   useEffect(() => {
     if (friendId) {
       get(ref(db, `profiles/${friendId}`))
-        .then(({ data }) => setFriendProfile(data as Profile | null));
+        .then((snap) => { if (snap.exists()) setFriendProfile({ ...snap.val(), user_id: friendId } as Profile); });
     }
   }, [friendId]);
 
