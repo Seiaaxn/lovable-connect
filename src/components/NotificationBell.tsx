@@ -23,34 +23,36 @@ export function NotificationBell() {
 
   useEffect(() => {
     if (!user) return;
-    // Request push notification permission
     if ('Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission();
     }
-    const fetchNotifs = async () => {
-      const { data } = await supabase.from('notifications').select('*').eq('user_id', user.uid).order('created_at', { ascending: false }).limit(20);
-      setNotifications((data as Notification[]) || []);
-    };
-    fetchNotifs();
-
-    const channel = supabase
-      .channel('notif-' + user.uid)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.uid}` }, (payload) => {
-        setNotifications(prev => [payload.new as Notification, ...prev]);
-        if ('Notification' in window && Notification.permission === 'granted') {
-          new window.Notification((payload.new as Notification).title, { body: (payload.new as Notification).message || '' });
+    
+    const notifsRef = ref(db, `notifications/${user.uid}`);
+    const unsub = onValue(notifsRef, (snapshot) => {
+      const notifs: Notification[] = [];
+      snapshot.forEach((child) => {
+        notifs.push({ ...child.val(), id: child.key! });
+      });
+      notifs.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      
+      // Show browser notification for new items
+      const prevIds = new Set(notifications.map(n => n.id));
+      for (const n of notifs) {
+        if (!prevIds.has(n.id) && !n.is_read && 'Notification' in window && Notification.permission === 'granted') {
+          new window.Notification(n.title, { body: n.message || '' });
         }
-      })
-      .subscribe();
+      }
+      setNotifications(notifs.slice(0, 20));
+    });
 
-    return () => { supabase.removeChannel(channel); };
+    return () => unsub();
   }, [user]);
 
   const markAllRead = async () => {
     if (!user) return;
     const unread = notifications.filter(n => !n.is_read);
     for (const n of unread) {
-      await supabase.from('notifications').update({ is_read: true }).eq('id', n.id);
+      await update(ref(db, `notifications/${user.uid}/${n.id}`), { is_read: true });
     }
     setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
   };

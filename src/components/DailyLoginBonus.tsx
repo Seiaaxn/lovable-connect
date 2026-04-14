@@ -86,7 +86,7 @@ export function DailyLoginBonus() {
     const reward = getRewardForDay(currentStreak);
     
     await addCoins(reward.coins);
-    await addExp(reward.exp, 'daily_login');
+    await addExp(reward.exp);
 
     saveDailyData({ lastClaim: new Date().toISOString(), streak: currentStreak });
     setAlreadyClaimed(true);

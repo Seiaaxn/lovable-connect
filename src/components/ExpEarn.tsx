@@ -31,7 +31,7 @@ export function ExpEarn({ source, contentId, contentTitle, baseExp = 10 }: ExpEa
     earned.current = true;
 
     const timer = setTimeout(async () => {
-      const result = await addExp(baseExp, source, contentId, contentTitle);
+      const result = await addExp(baseExp);
       if (result) {
         const amount = profile?.is_premium ? baseExp * 5 : baseExp;
         setEarnedAmount(amount);
