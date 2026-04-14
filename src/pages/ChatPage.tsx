@@ -2,7 +2,8 @@ import { useState, useRef, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useChat } from '@/hooks/useChat';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/integrations/firebase/config';
+import { ref, get } from 'firebase/database';
 import { ArrowLeft, Send, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import type { Profile } from '@/hooks/useProfile';
@@ -22,7 +23,7 @@ export default function ChatPage() {
 
   useEffect(() => {
     if (friendId) {
-      supabase.from('profiles').select('*').eq('user_id', friendId).single()
+      get(ref(db, `profiles/${friendId}`))
         .then(({ data }) => setFriendProfile(data as Profile | null));
     }
   }, [friendId]);
