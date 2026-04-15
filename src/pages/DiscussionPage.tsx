@@ -1,14 +1,16 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
-import { db } from '@/integrations/firebase/config';
-import { ref, get, push, remove, onValue, set, onDisconnect, serverTimestamp } from 'firebase/database';
+import { db, storage } from '@/integrations/firebase/config';
+import { ref, get, push, remove, onValue, set, onDisconnect } from 'firebase/database';
+import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Header } from '@/components/Header';
 import { BottomNav } from '@/components/BottomNav';
 import { Link } from 'react-router-dom';
 import { getLevelBadge } from '@/lib/levelUtils';
-import { Send, MessageSquare, Trash2, Crown, Loader2, Users, Reply, Image } from 'lucide-react';
+import { Send, MessageSquare, Trash2, Crown, Loader2, Reply, ImageIcon, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { toast } from 'sonner';
 
 interface DiscussionMessage {
   id: string;
@@ -36,6 +38,8 @@ const ROOMS = [
   { id: 'offtopic', label: 'Off-Topic', desc: 'Topik bebas', emoji: '🎲' },
 ];
 
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
+
 export default function DiscussionPage() {
   const { user } = useAuth();
   const { profile } = useProfile();
@@ -43,10 +47,15 @@ export default function DiscussionPage() {
   const [messages, setMessages] = useState<DiscussionMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
   const [onlineUsers, setOnlineUsers] = useState<{ user_id: string; display_name: string; avatar_url: string | null }[]>([]);
   const [replyTo, setReplyTo] = useState<{ id: string; user_name: string; text: string } | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [viewImage, setViewImage] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Online presence tracking
   useEffect(() => {
@@ -114,35 +123,79 @@ export default function DiscussionPage() {
 
   useEffect(() => { fetchMessages(); }, [fetchMessages]);
 
-  // Realtime subscription
   useEffect(() => {
     const roomRef = ref(db, `discussions/${activeRoom}`);
     const unsub = onValue(roomRef, () => { fetchMessages(); });
     return () => unsub();
   }, [activeRoom, fetchMessages]);
 
-  // Auto scroll to bottom
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
 
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Hanya file gambar yang diperbolehkan');
+      return;
+    }
+    if (file.size > MAX_IMAGE_SIZE) {
+      toast.error('Ukuran gambar maksimal 5MB');
+      return;
+    }
+
+    setImageFile(file);
+    const reader = new FileReader();
+    reader.onload = (ev) => setImagePreview(ev.target?.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const clearImage = () => {
+    setImageFile(null);
+    setImagePreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const uploadImage = async (file: File): Promise<string> => {
+    const filename = `discussions/${activeRoom}/${Date.now()}_${Math.random().toString(36).slice(2)}.${file.name.split('.').pop()}`;
+    const fileRef = storageRef(storage, filename);
+    await uploadBytes(fileRef, file);
+    return getDownloadURL(fileRef);
+  };
+
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !newMessage.trim()) return;
-    const msgData: any = {
-      user_id: user.uid,
-      room: activeRoom,
-      message: newMessage.trim(),
-      created_at: new Date().toISOString(),
-    };
-    if (replyTo) {
-      msgData.reply_to = replyTo;
+    if (!user || (!newMessage.trim() && !imageFile)) return;
+    if (sending) return;
+
+    setSending(true);
+    try {
+      let imageUrl: string | null = null;
+      if (imageFile) {
+        imageUrl = await uploadImage(imageFile);
+      }
+
+      const msgData: any = {
+        user_id: user.uid,
+        room: activeRoom,
+        message: newMessage.trim(),
+        created_at: new Date().toISOString(),
+      };
+      if (replyTo) msgData.reply_to = replyTo;
+      if (imageUrl) msgData.image_url = imageUrl;
+
+      await push(ref(db, `discussions/${activeRoom}`), msgData);
+      setNewMessage('');
+      setReplyTo(null);
+      clearImage();
+    } catch (err) {
+      toast.error('Gagal mengirim pesan');
     }
-    await push(ref(db, `discussions/${activeRoom}`), msgData);
-    setNewMessage('');
-    setReplyTo(null);
+    setSending(false);
   };
 
   const handleDelete = async (id: string) => {
@@ -153,7 +206,7 @@ export default function DiscussionPage() {
     setReplyTo({
       id: msg.id,
       user_name: msg.profile?.display_name || 'User',
-      text: msg.message.slice(0, 80),
+      text: msg.image_url ? '📷 Gambar' : msg.message.slice(0, 80),
     });
     inputRef.current?.focus();
   };
@@ -203,7 +256,7 @@ export default function DiscussionPage() {
             {ROOMS.map(room => (
               <button
                 key={room.id}
-                onClick={() => { setActiveRoom(room.id); setReplyTo(null); }}
+                onClick={() => { setActiveRoom(room.id); setReplyTo(null); clearImage(); }}
                 className={`flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-medium transition flex items-center gap-1 ${
                   activeRoom === room.id
                     ? 'gradient-bg text-primary-foreground'
@@ -222,7 +275,7 @@ export default function DiscussionPage() {
         <div
           ref={scrollRef}
           className="flex-1 overflow-y-auto px-4 space-y-3 py-2"
-          style={{ maxHeight: 'calc(100vh - 280px)' }}
+          style={{ maxHeight: 'calc(100vh - 300px)' }}
         >
           {loading ? (
             <div className="flex items-center justify-center py-12">
@@ -276,12 +329,27 @@ export default function DiscussionPage() {
                           <p className="text-muted-foreground truncate">{msg.reply_to.text}</p>
                         </div>
                       )}
-                      <div className={`px-3 py-2 rounded-2xl text-sm ${
+                      <div className={`rounded-2xl text-sm overflow-hidden ${
                         isMe
                           ? 'gradient-bg text-primary-foreground rounded-tr-sm'
                           : 'bg-card text-foreground rounded-tl-sm'
                       }`}>
-                        <p className="break-words">{msg.message}</p>
+                        {/* Image */}
+                        {msg.image_url && (
+                          <button onClick={() => setViewImage(msg.image_url!)} className="block w-full">
+                            <img
+                              src={msg.image_url}
+                              alt="Gambar"
+                              className="w-full max-w-[280px] max-h-[200px] object-cover rounded-t-2xl"
+                              loading="lazy"
+                            />
+                          </button>
+                        )}
+                        {msg.message && (
+                          <div className="px-3 py-2">
+                            <p className="break-words">{msg.message}</p>
+                          </div>
+                        )}
                       </div>
                       <div className="flex items-center gap-1.5 mt-0.5">
                         <span className="text-[9px] text-muted-foreground">{formatTime(msg.created_at)}</span>
@@ -320,7 +388,33 @@ export default function DiscussionPage() {
                 <button onClick={() => setReplyTo(null)} className="text-muted-foreground hover:text-foreground text-xs ml-2">✕</button>
               </div>
             )}
+            {/* Image preview */}
+            {imagePreview && (
+              <div className="relative inline-block mb-2">
+                <img src={imagePreview} alt="Preview" className="h-20 rounded-lg object-cover border border-border" />
+                <button
+                  onClick={clearImage}
+                  className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center text-xs"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            )}
             <form onSubmit={handleSend} className="flex gap-2 items-end">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleImageSelect}
+                className="hidden"
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="p-2.5 rounded-xl bg-muted text-muted-foreground hover:text-primary transition"
+              >
+                <ImageIcon className="w-5 h-5" />
+              </button>
               <textarea
                 ref={inputRef}
                 value={newMessage}
@@ -338,10 +432,10 @@ export default function DiscussionPage() {
               />
               <button
                 type="submit"
-                disabled={!newMessage.trim()}
+                disabled={(!newMessage.trim() && !imageFile) || sending}
                 className="p-2.5 rounded-xl gradient-bg text-primary-foreground disabled:opacity-30"
               >
-                <Send className="w-5 h-5" />
+                {sending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
               </button>
             </form>
           </div>
@@ -353,6 +447,25 @@ export default function DiscussionPage() {
           </div>
         )}
       </div>
+
+      {/* Full image viewer */}
+      <AnimatePresence>
+        {viewImage && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
+            onClick={() => setViewImage(null)}
+          >
+            <button className="absolute top-4 right-4 text-white/80 hover:text-white">
+              <X className="w-8 h-8" />
+            </button>
+            <img src={viewImage} alt="Gambar" className="max-w-full max-h-full object-contain rounded-lg" />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <BottomNav />
     </main>
   );
