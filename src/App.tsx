@@ -5,8 +5,6 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ThemeProvider } from "@/hooks/useTheme";
-import { MiniPlayerProvider } from "@/components/MiniPlayerContext";
-import { MiniPlayerOverlay } from "@/components/MiniPlayerOverlay";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import AnimeDetail from "./pages/AnimeDetail";
@@ -37,6 +35,7 @@ import AchievementsPage from "./pages/AchievementsPage";
 import DiscussionPage from "./pages/DiscussionPage";
 import AdminPanel from "./pages/AdminPanel";
 import SharePremiumPage from "./pages/SharePremiumPage";
+import ArimaChatPage from "./pages/ArimaChatPage";
 
 const queryClient = new QueryClient();
 
@@ -44,47 +43,45 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider>
       <AuthProvider>
-        <MiniPlayerProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
-              <Routes>
-                <Route path="/" element={<Index />} />
-                <Route path="/anime/:animeId" element={<AnimeDetail />} />
-                <Route path="/watch/:episodeId" element={<WatchPage />} />
-                <Route path="/comic/:slug" element={<ComicDetail />} />
-                <Route path="/read/:chapterSlug" element={<ComicReader />} />
-                <Route path="/donghua/:slug" element={<DonghuaDetail />} />
-                <Route path="/donghua-watch/:episodeSlug" element={<DonghuaWatch />} />
-                <Route path="/search" element={<SearchPage />} />
-                <Route path="/genres" element={<GenresPage />} />
-                <Route path="/genre/:genreId" element={<GenreAnime />} />
-                <Route path="/comic-genre/:genre" element={<ComicGenrePage />} />
-                <Route path="/donghua-genre/:genre" element={<DonghuaGenrePage />} />
-                <Route path="/favorites" element={<FavoritesPage />} />
-                <Route path="/history" element={<HistoryPage />} />
-                <Route path="/schedule" element={<SchedulePage />} />
-                <Route path="/all-anime" element={<AllAnimePage />} />
-                <Route path="/all-comic" element={<AllComicPage />} />
-                <Route path="/all-donghua" element={<AllDonghuaPage />} />
-                <Route path="/login" element={<LoginPage />} />
-                <Route path="/profile" element={<ProfilePage />} />
-                <Route path="/friends" element={<FriendsPage />} />
-                <Route path="/chat/:friendId" element={<ChatPage />} />
-                <Route path="/premium" element={<PremiumPage />} />
-                <Route path="/leaderboard" element={<LeaderboardPage />} />
-                <Route path="/user/:userId" element={<UserProfilePage />} />
-                <Route path="/achievements" element={<AchievementsPage />} />
-                <Route path="/discussion" element={<DiscussionPage />} />
-                <Route path="/admin" element={<AdminPanel />} />
-                <Route path="/share-premium" element={<SharePremiumPage />} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-              <MiniPlayerOverlay />
-            </BrowserRouter>
-          </TooltipProvider>
-        </MiniPlayerProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/anime/:animeId" element={<AnimeDetail />} />
+              <Route path="/watch/:episodeId" element={<WatchPage />} />
+              <Route path="/comic/:slug" element={<ComicDetail />} />
+              <Route path="/read/:chapterSlug" element={<ComicReader />} />
+              <Route path="/donghua/:slug" element={<DonghuaDetail />} />
+              <Route path="/donghua-watch/:episodeSlug" element={<DonghuaWatch />} />
+              <Route path="/search" element={<SearchPage />} />
+              <Route path="/genres" element={<GenresPage />} />
+              <Route path="/genre/:genreId" element={<GenreAnime />} />
+              <Route path="/comic-genre/:genre" element={<ComicGenrePage />} />
+              <Route path="/donghua-genre/:genre" element={<DonghuaGenrePage />} />
+              <Route path="/favorites" element={<FavoritesPage />} />
+              <Route path="/history" element={<HistoryPage />} />
+              <Route path="/schedule" element={<SchedulePage />} />
+              <Route path="/all-anime" element={<AllAnimePage />} />
+              <Route path="/all-comic" element={<AllComicPage />} />
+              <Route path="/all-donghua" element={<AllDonghuaPage />} />
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/friends" element={<FriendsPage />} />
+              <Route path="/chat/:friendId" element={<ChatPage />} />
+              <Route path="/premium" element={<PremiumPage />} />
+              <Route path="/leaderboard" element={<LeaderboardPage />} />
+              <Route path="/user/:userId" element={<UserProfilePage />} />
+              <Route path="/achievements" element={<AchievementsPage />} />
+              <Route path="/discussion" element={<DiscussionPage />} />
+              <Route path="/admin" element={<AdminPanel />} />
+              <Route path="/share-premium" element={<SharePremiumPage />} />
+              <Route path="/arima-chat" element={<ArimaChatPage />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
       </AuthProvider>
     </ThemeProvider>
   </QueryClientProvider>

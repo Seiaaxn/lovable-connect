@@ -5,9 +5,8 @@ import { addHistory } from '@/lib/storage';
 import { CommentSection } from '@/components/CommentSection';
 import { ExpEarn } from '@/components/ExpEarn';
 import { BottomNav } from '@/components/BottomNav';
-import { useMiniPlayer } from '@/components/MiniPlayerContext';
 import type { EpisodeDetail } from '@/lib/types';
-import { Loader2, ArrowLeft, ChevronLeft, ChevronRight, Download, ExternalLink, PictureInPicture2 } from 'lucide-react';
+import { Loader2, ArrowLeft, ChevronLeft, ChevronRight, Download, ExternalLink } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export default function WatchPage() {
@@ -17,14 +16,10 @@ export default function WatchPage() {
   const [streamUrl, setStreamUrl] = useState('');
   const [activeServer, setActiveServer] = useState('');
   const [showDownload, setShowDownload] = useState(false);
-  const [pip, setPip] = useState(false);
-  const { showMiniPlayer, closeMiniPlayer } = useMiniPlayer();
 
   useEffect(() => {
     if (!episodeId) return;
     setLoading(true);
-    setPip(false);
-    closeMiniPlayer();
     getEpisode(episodeId).then(data => {
       setEpisode(data);
       setStreamUrl(data.defaultStreamingUrl);
@@ -36,16 +31,6 @@ export default function WatchPage() {
   const handleServerChange = async (serverId: string) => {
     setActiveServer(serverId);
     try { const url = await getServerUrl(serverId); setStreamUrl(url); } catch {}
-  };
-
-  const togglePip = () => {
-    if (!pip) {
-      showMiniPlayer({ streamUrl, title: episode?.title || '', watchPath: `/watch/${episodeId}` });
-      setPip(true);
-    } else {
-      closeMiniPlayer();
-      setPip(false);
-    }
   };
 
   if (loading) return <div className="min-h-screen bg-background flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
@@ -61,16 +46,11 @@ export default function WatchPage() {
           <Link to={`/anime/${episode.animeId}`} className="flex items-center gap-2 text-foreground hover:text-primary">
             <ArrowLeft className="w-5 h-5" /><span className="text-sm font-medium">Kembali</span>
           </Link>
-          <button onClick={togglePip} className={`p-2 rounded-lg hover:bg-muted transition ${pip ? 'text-primary' : 'text-foreground'}`} title="Mini Player">
-            <PictureInPicture2 className="w-5 h-5" />
-          </button>
         </div>
       </header>
-      {!pip && (
-        <div className="w-full aspect-video bg-background">
-          <iframe src={streamUrl} className="w-full h-full" allowFullScreen allow="autoplay; fullscreen" />
-        </div>
-      )}
+      <div className="w-full aspect-video bg-background">
+        <iframe src={streamUrl} className="w-full h-full" allowFullScreen allow="autoplay; fullscreen" />
+      </div>
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="px-4 py-4 space-y-4">
         <h1 className="text-lg font-display font-bold text-foreground">{episode.title}</h1>
         <div className="flex gap-2">
