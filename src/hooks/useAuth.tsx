@@ -2,6 +2,7 @@ import { useState, useEffect, createContext, useContext } from 'react';
 import { auth, db } from '@/integrations/firebase/config';
 import { onAuthStateChanged, signInWithPopup, signOut as firebaseSignOut, GoogleAuthProvider, type User } from 'firebase/auth';
 import { ref, set, get } from 'firebase/database';
+import { setOneSignalExternalUserId, removeOneSignalExternalUserId, sendOneSignalTag } from '@/lib/onesignal';
 
 interface AuthContextType {
   user: User | null;
@@ -25,6 +26,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
       if (firebaseUser) {
+        // Link OneSignal user
+        setOneSignalExternalUserId(firebaseUser.uid);
+        sendOneSignalTag('email', firebaseUser.email || '');
+
         const profileRef = ref(db, `profiles/${firebaseUser.uid}`);
         const snapshot = await get(profileRef);
         if (!snapshot.exists()) {
@@ -49,6 +54,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           await set(ref(db, `profiles/${firebaseUser.uid}/avatar_url`), firebaseUser.photoURL || null);
           await set(ref(db, `profiles/${firebaseUser.uid}/display_name`), firebaseUser.displayName || snapshot.val().display_name);
         }
+      } else {
+        removeOneSignalExternalUserId();
       }
       setLoading(false);
     });
