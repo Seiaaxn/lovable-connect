@@ -5,9 +5,8 @@ import { addHistory } from '@/lib/storage';
 import { CommentSection } from '@/components/CommentSection';
 import { ExpEarn } from '@/components/ExpEarn';
 import { BottomNav } from '@/components/BottomNav';
-import { useMiniPlayer } from '@/components/MiniPlayerContext';
 import type { DonghuaEpisodeDetail } from '@/lib/types';
-import { Loader2, ArrowLeft, ChevronLeft, ChevronRight, Download, ExternalLink, PictureInPicture2 } from 'lucide-react';
+import { Loader2, ArrowLeft, ChevronLeft, ChevronRight, Download, ExternalLink } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export default function DonghuaWatchPage() {
@@ -16,14 +15,10 @@ export default function DonghuaWatchPage() {
   const [loading, setLoading] = useState(true);
   const [activeStream, setActiveStream] = useState(0);
   const [showDownload, setShowDownload] = useState(false);
-  const [pip, setPip] = useState(false);
-  const { showMiniPlayer, closeMiniPlayer } = useMiniPlayer();
 
   useEffect(() => {
     if (!episodeSlug) return;
     setLoading(true);
-    setPip(false);
-    closeMiniPlayer();
     getDonghuaEpisode(episodeSlug).then(d => {
       setEpisode(d);
       setLoading(false);
@@ -32,16 +27,6 @@ export default function DonghuaWatchPage() {
   }, [episodeSlug]);
 
   const streamUrl = episode?.streams[activeStream]?.url || '';
-
-  const togglePip = () => {
-    if (!pip) {
-      showMiniPlayer({ streamUrl, title: episode?.title || '', watchPath: `/donghua-watch/${episodeSlug}` });
-      setPip(true);
-    } else {
-      closeMiniPlayer();
-      setPip(false);
-    }
-  };
 
   if (loading) return <div className="min-h-screen bg-background flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
   if (!episode) return <div className="min-h-screen bg-background flex items-center justify-center text-muted-foreground">Episode tidak ditemukan</div>;
@@ -56,16 +41,11 @@ export default function DonghuaWatchPage() {
           <Link to={`/donghua/${episode.navigation.all_slug}`} className="flex items-center gap-2 text-foreground hover:text-primary">
             <ArrowLeft className="w-5 h-5" /><span className="text-sm font-medium">Kembali</span>
           </Link>
-          <button onClick={togglePip} className={`p-2 rounded-lg hover:bg-muted transition ${pip ? 'text-primary' : 'text-foreground'}`} title="Mini Player">
-            <PictureInPicture2 className="w-5 h-5" />
-          </button>
         </div>
       </header>
-      {!pip && (
-        <div className="w-full aspect-video bg-background">
-          <iframe src={streamUrl} className="w-full h-full" allowFullScreen allow="autoplay; fullscreen" />
-        </div>
-      )}
+      <div className="w-full aspect-video bg-background">
+        <iframe src={streamUrl} className="w-full h-full" allowFullScreen allow="autoplay; fullscreen" />
+      </div>
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="px-4 py-4 space-y-4">
         <h1 className="text-lg font-display font-bold text-foreground">{episode.title}</h1>
         <div className="flex gap-2">
