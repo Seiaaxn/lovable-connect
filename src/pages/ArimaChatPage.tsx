@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Header } from '@/components/Header';
 import { BottomNav } from '@/components/BottomNav';
-import { Send, Loader2, Trash2, Bot } from 'lucide-react';
+import { Send, Loader2, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface ChatMessage {
@@ -12,6 +12,7 @@ interface ChatMessage {
 }
 
 const STORAGE_KEY = 'shinkanime_arima_chat';
+const KANA_AVATAR = 'https://cdn.myanimelist.net/images/characters/2/525519.jpg';
 const ARIMA_PROMPT = `Kamu adalah Arima Kana dari anime Oshi no Ko. 
 
 Kepribadian:
@@ -87,9 +88,7 @@ export default function ArimaChatPage() {
       {/* Chat Header */}
       <div className="px-4 py-3 bg-card/80 backdrop-blur-lg border-b border-border/50 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-pink-500/20 flex items-center justify-center">
-            <Bot className="w-5 h-5 text-pink-500" />
-          </div>
+          <img src={KANA_AVATAR} alt="Arima Kana" className="w-10 h-10 rounded-full object-cover ring-2 ring-pink-500/50" />
           <div>
             <h2 className="text-sm font-bold text-foreground">Arima Kana</h2>
             <p className="text-[10px] text-green-500 flex items-center gap-1">
@@ -109,15 +108,13 @@ export default function ArimaChatPage() {
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-3 pb-20">
         {messages.length === 0 && (
           <div className="text-center py-12">
-            <div className="w-16 h-16 rounded-full bg-pink-500/10 flex items-center justify-center mx-auto mb-4">
-              <Bot className="w-8 h-8 text-pink-500" />
-            </div>
+            <img src={KANA_AVATAR} alt="Arima Kana" className="w-20 h-20 rounded-full object-cover ring-4 ring-pink-500/30 mx-auto mb-4" />
             <h3 className="text-sm font-bold text-foreground mb-1">Chat dengan Arima Kana!</h3>
             <p className="text-xs text-muted-foreground">Ngobrol bareng Kana-chan dari Oshi no Ko~</p>
             <p className="text-xs text-muted-foreground mt-1">Chat kamu bersifat pribadi & tersimpan lokal</p>
             <div className="flex flex-wrap gap-2 justify-center mt-4">
               {['Halo Kana! 👋', 'Ceritain tentang dirimu!', 'Kana suka anime apa?'].map(q => (
-                <button key={q} onClick={() => { setInput(q); }} className="px-3 py-1.5 bg-card border border-border/50 rounded-full text-xs text-muted-foreground hover:text-foreground hover:border-primary/50 transition">
+                <button key={q} onClick={() => { setInput(q); }} className="px-3 py-1.5 bg-card border border-border/50 rounded-full text-xs text-muted-foreground hover:text-foreground hover:border-pink-500/50 transition">
                   {q}
                 </button>
               ))}
@@ -133,9 +130,7 @@ export default function ArimaChatPage() {
               className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
             >
               {msg.role === 'assistant' && (
-                <div className="w-7 h-7 rounded-full bg-pink-500/20 flex items-center justify-center mr-2 flex-shrink-0 mt-1">
-                  <Bot className="w-3.5 h-3.5 text-pink-500" />
-                </div>
+                <img src={KANA_AVATAR} alt="Kana" className="w-7 h-7 rounded-full object-cover mr-2 flex-shrink-0 mt-1 ring-1 ring-pink-500/30" />
               )}
               <div className={`max-w-[78%] px-3.5 py-2.5 rounded-2xl text-sm ${
                 msg.role === 'user'
@@ -152,9 +147,7 @@ export default function ArimaChatPage() {
         </AnimatePresence>
         {loading && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-full bg-pink-500/20 flex items-center justify-center flex-shrink-0">
-              <Bot className="w-3.5 h-3.5 text-pink-500" />
-            </div>
+            <img src={KANA_AVATAR} alt="Kana" className="w-7 h-7 rounded-full object-cover flex-shrink-0 ring-1 ring-pink-500/30" />
             <div className="px-4 py-3 bg-card rounded-2xl rounded-bl-md border border-border/30">
               <div className="flex gap-1">
                 <span className="w-2 h-2 rounded-full bg-muted-foreground/40 animate-bounce" style={{ animationDelay: '0ms' }} />

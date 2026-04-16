@@ -1,8 +1,10 @@
 import { Link } from 'react-router-dom';
-import { Search, User, Sun, Moon } from 'lucide-react';
+import { Search, User, Sun, Moon, Bot } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
 import { NotificationBell } from './NotificationBell';
+
+const LOGO_URL = 'https://cdn.phototourl.com/free/2026-04-15-dbc2ede5-53df-434f-97b7-1a684467a4a7.jpg';
 
 export function Header() {
   const { user } = useAuth();
@@ -14,7 +16,8 @@ export function Header() {
   return (
     <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-lg border-b border-border/50">
       <div className="flex items-center justify-between h-14 px-4 max-w-7xl mx-auto">
-        <Link to="/" className="flex items-center gap-1">
+        <Link to="/" className="flex items-center gap-2">
+          <img src={LOGO_URL} alt="ShinKanimeID" className="w-8 h-8 rounded-lg object-cover" />
           <span className="text-xl font-display font-bold">
             <span className="gradient-text">SHINKAN</span>
             <span className="text-foreground">IMEID</span>
@@ -22,6 +25,10 @@ export function Header() {
         </Link>
 
         <div className="flex items-center gap-1">
+          <Link to="/arima-chat" className="p-2 rounded-full hover:bg-muted transition-colors" title="Chat Kana AI">
+            <Bot className="w-5 h-5 text-pink-500" />
+          </Link>
+
           <button onClick={toggleTheme} className="p-2 rounded-full hover:bg-muted transition-colors">
             {theme === 'dark' ? <Sun className="w-5 h-5 text-foreground" /> : <Moon className="w-5 h-5 text-foreground" />}
           </button>

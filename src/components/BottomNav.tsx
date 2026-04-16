@@ -1,11 +1,11 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Home, LayoutGrid, BookOpen, Tv, Heart, Bot } from 'lucide-react';
+import { Home, LayoutGrid, BookOpen, Tv, Heart, MessageSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navItems = [
   { href: '/', icon: Home, label: 'Beranda' },
   { href: '/genres', icon: LayoutGrid, label: 'Genre' },
-  { href: '/arima-chat', icon: Bot, label: 'Kana AI' },
+  { href: '/discussion', icon: MessageSquare, label: 'Diskusi' },
   { href: '/all-comic', icon: BookOpen, label: 'Komik' },
   { href: '/all-donghua', icon: Tv, label: 'Donghua' },
   { href: '/favorites', icon: Heart, label: 'Favorit' },

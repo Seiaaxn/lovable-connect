@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import type { ScheduleDay } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Calendar, Play } from 'lucide-react';
+import { Calendar, Play, Clock } from 'lucide-react';
 
 const dayNames: Record<string, string> = { Senin: 'Sen', Selasa: 'Sel', Rabu: 'Rab', Kamis: 'Kam', Jumat: 'Jum', Sabtu: 'Sab', Minggu: 'Min' };
 const dayFull: Record<string, string> = { Senin: 'Senin', Selasa: 'Selasa', Rabu: 'Rabu', Kamis: 'Kamis', Jumat: 'Jumat', Sabtu: 'Sabtu', Minggu: 'Minggu' };
@@ -20,20 +20,20 @@ export function ScheduleSection({ schedule }: { schedule: ScheduleDay[] }) {
 
   return (
     <div className="space-y-4">
-      {/* Day Pills */}
-      <div className="flex gap-1.5 overflow-x-auto hide-scrollbar pb-1">
+      {/* Day Pills - matching SchedulePage style */}
+      <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-2">
         {schedule.map(day => {
           const isToday = day.day === today;
           const isActive = activeDay === day.day;
           return (
             <button key={day.day} onClick={() => setActiveDay(day.day)} className={cn(
-              'flex flex-col items-center px-3 py-2 rounded-xl text-xs font-medium whitespace-nowrap transition-all min-w-[52px]',
-              isActive ? 'gradient-bg text-primary-foreground shadow-lg scale-105' : 'bg-card text-muted-foreground hover:bg-muted border border-border/30',
+              'flex flex-col items-center gap-1 px-4 py-2 rounded-xl text-xs font-medium whitespace-nowrap transition-all min-w-[56px] relative',
+              isActive ? 'gradient-bg text-primary-foreground shadow-lg scale-105' : 'bg-card text-muted-foreground hover:bg-card/80 border border-border',
+              isToday && !isActive && 'ring-2 ring-primary/40'
             )}>
-              <span className="text-[10px] opacity-70">{dayNames[day.day]}</span>
-              <span className="font-bold text-base mt-0.5">{day.anime_list?.length || 0}</span>
-              {isToday && !isActive && <span className="w-1.5 h-1.5 bg-green-500 rounded-full mt-1" />}
-              {isToday && isActive && <span className="w-1.5 h-1.5 bg-primary-foreground rounded-full mt-1" />}
+              <span className="font-bold">{dayNames[day.day]}</span>
+              <span className="text-[10px] opacity-70">{day.anime_list?.length || 0} judul</span>
+              {isToday && <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-accent rounded-full border-2 border-background" />}
             </button>
           );
         })}
@@ -47,20 +47,24 @@ export function ScheduleSection({ schedule }: { schedule: ScheduleDay[] }) {
         {activeDay === today && <span className="text-[9px] px-2 py-0.5 bg-green-500/10 text-green-500 rounded-full font-medium">Hari ini</span>}
       </div>
 
-      {/* Anime Grid */}
+      {/* Anime Grid - matching SchedulePage style */}
       <AnimatePresence mode="wait">
         <motion.div key={activeDay} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
           {animeList.length > 0 ? (
-            <div className="grid grid-cols-3 gap-2.5">
+            <div className="grid grid-cols-3 gap-3">
               {animeList.map((anime, i) => (
                 <Link key={`${anime.slug}-${i}`} to={`/anime/${anime.slug}`} className="group">
-                  <div className="relative aspect-[3/4] rounded-xl overflow-hidden bg-muted">
+                  <div className="relative aspect-[3/4] rounded-xl overflow-hidden bg-muted shadow-md">
                     <img src={anime.poster} alt={anime.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110" loading="lazy" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-center pb-3">
-                      <Play className="w-6 h-6 text-white" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <div className="absolute bottom-0 left-0 right-0 p-2">
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Clock className="w-3 h-3 text-primary-foreground" />
+                        <span className="text-[10px] text-primary-foreground">Tayang hari ini</span>
+                      </div>
                     </div>
                   </div>
-                  <h4 className="mt-1.5 text-[11px] font-medium text-foreground line-clamp-2 group-hover:text-primary transition-colors leading-tight">{anime.title}</h4>
+                  <h4 className="mt-2 text-[11px] font-medium text-foreground line-clamp-2 group-hover:text-primary transition-colors leading-tight">{anime.title}</h4>
                 </Link>
               ))}
             </div>

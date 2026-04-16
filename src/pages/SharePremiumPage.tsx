@@ -17,10 +17,13 @@ interface Friend {
   is_premium: boolean;
 }
 
+const SHARE_COST = 30000;
+const SHARE_DAYS = 30;
+
 export default function SharePremiumPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { profile } = useProfile();
+  const { profile, refreshProfile } = useProfile();
   const [friends, setFriends] = useState<Friend[]>([]);
   const [loading, setLoading] = useState(true);
   const [sharing, setSharing] = useState<string | null>(null);
@@ -28,8 +31,8 @@ export default function SharePremiumPage() {
 
   useEffect(() => {
     if (!user) { navigate('/login'); return; }
-    if (!profile?.is_premium) { navigate('/premium'); return; }
-    fetchFriends();
+    if (profile && !profile.is_premium) { navigate('/premium'); return; }
+    if (user) fetchFriends();
   }, [user, profile]);
 
   const fetchFriends = async () => {
@@ -56,7 +59,10 @@ export default function SharePremiumPage() {
         }
       }
       setFriends(friendProfiles);
-    } catch {}
+    } catch (err) {
+      console.error('Error fetching friends:', err);
+      toast.error('Gagal memuat daftar teman');
+    }
     setLoading(false);
   };
 
@@ -64,33 +70,54 @@ export default function SharePremiumPage() {
     if (!profile || sharing || !user) return;
     setSharing(friendId);
 
-    const SHARE_COST = 30000;
-    const SHARE_DAYS = 30;
+    try {
+      // Re-check current coin balance from DB
+      const profileSnap = await get(ref(db, `profiles/${user.uid}`));
+      const currentCoins = profileSnap.exists() ? (profileSnap.val().coins || 0) : 0;
 
-    if (profile.coins < SHARE_COST) {
-      toast.error(`Koin tidak cukup! Butuh ${SHARE_COST} koin`);
-      setSharing(null);
-      return;
+      if (currentCoins < SHARE_COST) {
+        toast.error(`Koin tidak cukup! Butuh ${SHARE_COST.toLocaleString()} koin (kamu punya ${currentCoins.toLocaleString()})`);
+        setSharing(null);
+        return;
+      }
+
+      // Check if friend is already premium
+      const friendSnap = await get(ref(db, `profiles/${friendId}`));
+      if (friendSnap.exists() && friendSnap.val().is_premium) {
+        toast.error('Teman ini sudah premium!');
+        setFriends(prev => prev.map(f => f.user_id === friendId ? { ...f, is_premium: true } : f));
+        setSharing(null);
+        return;
+      }
+
+      // Deduct coins
+      await update(ref(db, `profiles/${user.uid}`), { coins: currentCoins - SHARE_COST });
+
+      // Give premium to friend
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + SHARE_DAYS);
+      await update(ref(db, `profiles/${friendId}`), { is_premium: true, premium_expires_at: expiresAt.toISOString() });
+
+      // Send notification
+      const friendProfile = friends.find(f => f.user_id === friendId);
+      await push(ref(db, `notifications/${friendId}`), {
+        user_id: friendId,
+        title: 'Premium Diterima! 🎉',
+        message: `${profile.display_name || 'Seseorang'} berbagi premium ${SHARE_DAYS} hari denganmu!`,
+        type: 'gift',
+        is_read: false,
+        created_at: new Date().toISOString(),
+      });
+
+      setFriends(prev => prev.map(f => f.user_id === friendId ? { ...f, is_premium: true } : f));
+      toast.success(`Premium ${SHARE_DAYS} hari diberikan ke ${friendProfile?.display_name || 'teman'}! (-${SHARE_COST.toLocaleString()} koin)`);
+      
+      // Refresh profile to update coin display
+      if (refreshProfile) refreshProfile();
+    } catch (err) {
+      console.error('Error sharing premium:', err);
+      toast.error('Gagal berbagi premium, coba lagi');
     }
-
-    await update(ref(db, `profiles/${user.uid}`), { coins: profile.coins - SHARE_COST });
-
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + SHARE_DAYS);
-    await update(ref(db, `profiles/${friendId}`), { is_premium: true, premium_expires_at: expiresAt.toISOString() });
-
-    const friendProfile = friends.find(f => f.user_id === friendId);
-    await push(ref(db, `notifications/${friendId}`), {
-      user_id: friendId,
-      title: 'Premium Diterima!',
-      message: `${profile.display_name || 'Seseorang'} berbagi premium ${SHARE_DAYS} hari denganmu!`,
-      type: 'gift',
-      is_read: false,
-      created_at: new Date().toISOString(),
-    });
-
-    setFriends(prev => prev.map(f => f.user_id === friendId ? { ...f, is_premium: true } : f));
-    toast.success(`Premium ${SHARE_DAYS} hari diberikan ke ${friendProfile?.display_name || 'teman'}! (-${SHARE_COST} koin)`);
     setSharing(null);
   };
 
@@ -98,7 +125,7 @@ export default function SharePremiumPage() {
     !searchQuery || (f.display_name || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  if (!user || !profile?.is_premium) return null;
+  if (!user || (profile && !profile.is_premium)) return null;
 
   return (
     <main className="min-h-screen bg-background">
@@ -110,8 +137,8 @@ export default function SharePremiumPage() {
               <Gift className="w-6 h-6 text-primary-foreground" />
               <h1 className="text-lg font-display font-bold text-primary-foreground">Berbagi Premium</h1>
             </div>
-            <p className="text-xs text-primary-foreground/80">Berikan 30 hari premium ke teman dengan 30000 koin</p>
-            <p className="text-xs text-primary-foreground/60 mt-1">Koin kamu: {profile.coins.toLocaleString()}</p>
+            <p className="text-xs text-primary-foreground/80">Berikan {SHARE_DAYS} hari premium ke teman dengan {SHARE_COST.toLocaleString()} koin</p>
+            <p className="text-xs text-primary-foreground/60 mt-1">Koin kamu: {(profile?.coins || 0).toLocaleString()}</p>
           </div>
           <div className="absolute -right-4 -top-4 w-32 h-32 bg-primary-foreground/10 rounded-full blur-xl" />
         </motion.div>
