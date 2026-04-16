@@ -113,7 +113,7 @@ export default function SharePremiumPage() {
       toast.success(`Premium ${SHARE_DAYS} hari diberikan ke ${friendProfile?.display_name || 'teman'}! (-${SHARE_COST.toLocaleString()} koin)`);
       
       // Refresh profile to update coin display
-      if (refreshProfile) refreshProfile();
+      if (fetchProfile) fetchProfile();
     } catch (err) {
       console.error('Error sharing premium:', err);
       toast.error('Gagal berbagi premium, coba lagi');
