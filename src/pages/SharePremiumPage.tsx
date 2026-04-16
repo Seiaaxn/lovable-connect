@@ -23,7 +23,7 @@ const SHARE_DAYS = 30;
 export default function SharePremiumPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { profile, refreshProfile } = useProfile();
+  const { profile, fetchProfile } = useProfile();
   const [friends, setFriends] = useState<Friend[]>([]);
   const [loading, setLoading] = useState(true);
   const [sharing, setSharing] = useState<string | null>(null);
